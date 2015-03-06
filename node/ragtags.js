@@ -8,10 +8,8 @@ var nodes = ['.'];
 var currentNode;
 var currentNodeStat;
 var children;
-
-function childNodePath(childNode){
-  return currentNode + DIRECTORY_SEPARATOR + childNode;
-}
+var tags = [];
+var tagsFile;
 
 while (nodes.length !== 0)
 {
@@ -26,8 +24,14 @@ while (nodes.length !== 0)
   }
   else if (currentNodeStat.isFile())
   {
-    analyse(currentNode);
+    tags = tags.concat(renderTags(analyse(currentNode), currentNode));
   }
+}
+
+writeTagsFile(tags);
+
+function childNodePath(childNode){
+  return currentNode + DIRECTORY_SEPARATOR + childNode;
 }
 
 function analyse(path) {
@@ -41,6 +45,8 @@ function analyse(path) {
   var contents = fs.readFileSync(path, options);
 
   var functions = findFunctions(contents);
+
+  return functions;
 }
 
 function findFunctions(js) {
@@ -58,4 +64,27 @@ function findFunctions(js) {
   }
 
   return matches;
+}
+
+function renderTags(tags, path) {
+  var renderedTags = [];
+
+  if (!tags.length) { return renderedTags; }
+
+  for (var i = 0; i < tags.length; i++)
+  {
+    renderedTags.push(tags[i][1] + '\t' + path + '\t'  + '/^' + tags[i][0] + '$/');
+  }
+
+  return renderedTags;
+}
+
+function writeTagsFile(tags) {
+  tags = tags.sort();
+
+  var data = tags.join('\n');
+
+  fs.writeFileSync('tags', data, {
+    encoding: 'utf8'
+  });
 }
