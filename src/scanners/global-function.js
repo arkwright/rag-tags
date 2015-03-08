@@ -1,21 +1,36 @@
 'use strict';
 
-var REGEX_LINE_CONTAINS_FUNCTION = /^\s*function\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\([^\(\)]*\)\s*.*$/;
-
 module.exports = {
-  scan: function(path, text, lines) {
-    var match;
-    var matches = [];
+  scan: function(path, text, lines, ast) {
+    var body  = ast.body;
 
-    for (var i = 0; i < lines.length; i++)
+    var currentNode;
+    var functions = [];
+    var nodes = [].concat(body);
+
+    while (nodes.length !== 0)
     {
-      match = lines[i].match(REGEX_LINE_CONTAINS_FUNCTION);
+      currentNode = nodes.shift();
 
-      if (match === null) { continue; }
-
-      matches.push([match[1], path, match[0]]);
+      switch(currentNode.type)
+      {
+        case 'FunctionDeclaration':
+        case 'FunctionExpression':
+          if (currentNode.id   &&   currentNode.id.name) {
+            functions.push([currentNode.id.name, currentNode.id.loc.start.line]);
+          }
+          nodes = [currentNode.body].concat(nodes);
+          break;
+        case 'BlockStatement':
+          nodes = currentNode.body.concat(nodes);
+          break;
+      }
     }
 
-    return matches;
+    var tags = functions.map(function(func){
+      return [func[0], path, lines[func[1] - 1]];
+    });
+
+    return tags;
   }
 };

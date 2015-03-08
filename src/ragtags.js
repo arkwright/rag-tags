@@ -14,6 +14,7 @@ module.exports = {
 
   _isHiddenPath: function(path) {
     if (path === '.') { return false; }
+    if (path.indexOf('node_modules') > -1) { return true; }
 
     return Path.basename(path)[0] === '.';
   },

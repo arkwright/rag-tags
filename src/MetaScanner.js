@@ -1,7 +1,8 @@
 'use strict';
 
-var FS   = require('fs');
-var Path = require('path');
+var FS      = require('fs');
+var Path    = require('path');
+var Esprima = require('esprima');
 
 module.exports = {
   _scanners: [],
@@ -40,9 +41,17 @@ module.exports = {
     var text        = FS.readFileSync(path, options);
     var lines       = text.split('\n');
 
+    try
+    {
+      var ast = Esprima.parse(text, { loc: true });
+    } catch (e) {
+      console.log('WARNING: Could not scan ' + path);
+      return allTags;
+    }
+
     for (var i in this._scanners)
     {
-      scannerTags = this._scanners[i].scan(path, text, lines);
+      scannerTags = this._scanners[i].scan(path, text, lines, ast);
 
       if (!scannerTags instanceof Array) { continue; }
 
