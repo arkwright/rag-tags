@@ -1,52 +1,27 @@
 'use strict';
 
 var fs = require('fs');
+var MetaScanner = require('./MetaScanner.js');
 
 var DIRECTORY_SEPARATOR = '/';
 
-var REGEX_LINE_CONTAINS_FUNCTION = /^\s*function\s+([a-zA-Z_$][0-9a-zA-Z_$]*)\s*\([^\(\)]*\)\s*.*$/;
-
 module.exports = {
-  _analyse: function (path) {
-    var file;
-
-    var options = {
-      encoding: 'utf8',
-      flag:     'r'
-    };
-
-    var contents = fs.readFileSync(path, options);
-
-    var functions = this._findFunctions(contents);
-
-    return functions;
+  _initMetaScanner: function() {
+    MetaScanner.useScanner('./scanners/global-function.js');
+    // MetaScanner.useScanner('./scanners/method.js');
   },
 
-  _findFunctions: function(js) {
-    var lines = js.split('\n');
-    var match;
-    var matches = [];
-
-    for (var i = 0; i < lines.length; i++)
-    {
-      match = lines[i].match(REGEX_LINE_CONTAINS_FUNCTION);
-
-      if (match === null) { continue; }
-
-      matches.push(match);
-    }
-
-    return matches;
-  },
-
-  _renderTags: function(tags, path) {
+  _renderTags: function(tags) {
     var renderedTags = [];
 
     if (!tags.length) { return renderedTags; }
 
     for (var i = 0; i < tags.length; i++)
     {
-      renderedTags.push(tags[i][1] + '\t' + path + '\t'  + '/^' + tags[i][0] + '$/');
+      // Remove './' from beginning of file path, if it exists.
+      if (tags[i][1].substring(0, 1) === './') { tags[i][1] = tags[i][1].substring(2) };
+
+      renderedTags.push(tags[i][0] + '\t' + tags[i][1] + '\t'  + '/^' + tags[i][2] + '$/');
     }
 
     return renderedTags;
@@ -59,6 +34,8 @@ module.exports = {
     var children;
     var tags = [];
     var tagsFile;
+
+    this._initMetaScanner();
 
     function childNodePath(childNode) {
       return currentNode + DIRECTORY_SEPARATOR + childNode;
@@ -77,17 +54,27 @@ module.exports = {
       }
       else if (currentNodeStat.isFile())
       {
-        tags = tags.concat(this._renderTags(this._analyse(currentNode), currentNode));
+        tags = tags.concat(this._scanFile(currentNode));
       }
     }
 
     this._writeTagsFile(tags);
+
+    console.log('Tags file written!');
+  },
+
+  _scanFile: function(path) {
+    var tags = MetaScanner.scan(path);
+
+    return tags;
   },
 
   _writeTagsFile: function(tags) {
-    tags = tags.sort();
+    var renderedTags = this._renderTags(tags);
 
-    var data = tags.join('\n');
+    var sortedTags = renderedTags.sort();
+
+    var data = sortedTags.join('\n');
 
     fs.writeFileSync('tags', data, {
       encoding: 'utf8'
