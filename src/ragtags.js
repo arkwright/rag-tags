@@ -1,14 +1,21 @@
 'use strict';
 
-var fs = require('fs');
-var MetaScanner = require('./MetaScanner.js');
+process.title = 'ragtags';
 
-var DIRECTORY_SEPARATOR = '/';
+var FS          = require('fs');
+var Path        = require('path');
+var MetaScanner = require('./MetaScanner.js');
 
 module.exports = {
   _initMetaScanner: function() {
     MetaScanner.useScanner('./scanners/global-function.js');
     // MetaScanner.useScanner('./scanners/method.js');
+  },
+
+  _isHiddenPath: function(path) {
+    if (path === '.') { return false; }
+
+    return Path.basename(path)[0] === '.';
   },
 
   _renderTags: function(tags) {
@@ -18,9 +25,6 @@ module.exports = {
 
     for (var i = 0; i < tags.length; i++)
     {
-      // Remove './' from beginning of file path, if it exists.
-      if (tags[i][1].substring(0, 1) === './') { tags[i][1] = tags[i][1].substring(2) };
-
       renderedTags.push(tags[i][0] + '\t' + tags[i][1] + '\t'  + '/^' + tags[i][2] + '$/');
     }
 
@@ -38,17 +42,20 @@ module.exports = {
     this._initMetaScanner();
 
     function childNodePath(childNode) {
-      return currentNode + DIRECTORY_SEPARATOR + childNode;
+      return currentNode + Path.sep + childNode;
     }
 
     while (nodes.length !== 0)
     {
-      currentNode     = nodes.shift();
-      currentNodeStat = fs.statSync(currentNode);
+      currentNode = nodes.shift();
+
+      if (this._isHiddenPath(currentNode)) { continue; }
+
+      currentNodeStat = FS.statSync(currentNode);
 
       if (currentNodeStat.isDirectory())
       {
-        nodes = fs.readdirSync(currentNode)
+        nodes = FS.readdirSync(currentNode)
         .map(childNodePath)
         .concat(nodes);
       }
@@ -64,6 +71,11 @@ module.exports = {
   },
 
   _scanFile: function(path) {
+    // Remove './' from beginning of file path, if it exists.
+    if (path.substring(0, 2) === './') {
+      path = path.substring(2);
+    }
+
     var tags = MetaScanner.scan(path);
 
     return tags;
@@ -76,7 +88,7 @@ module.exports = {
 
     var data = sortedTags.join('\n');
 
-    fs.writeFileSync('tags', data, {
+    FS.writeFileSync('tags', data, {
       encoding: 'utf8'
     });
   }
